@@ -151,7 +151,7 @@ namespace LMS.Controllers
                                    select cl.ClassId;
             //var getClassesInLocationAtThatTime;
             if (getExistingClass.ToArray().Length == 0 
-                /* && the other query for location is also empty */)
+                /* && the other query for locationnn is also empty */)
             {
                 isSuccessful = true;
             }
