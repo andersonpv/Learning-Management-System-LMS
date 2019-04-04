@@ -165,6 +165,7 @@ namespace LMS.Controllers
                 c.ProfId = instructor;
                 c.Location = location;
                 // TODO: add a start and stop time.
+                //c.Start = start;
                 db.Classes.Add(c);
                 db.SaveChanges();
             }
