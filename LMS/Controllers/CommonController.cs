@@ -152,8 +152,24 @@ namespace LMS.Controllers
         /// <returns>The assignment contents</returns>
         public IActionResult GetAssignmentContents(string subject, int num, string season, int year, string category, string asgname)
         {
+            var getContent = from classes in db.Classes
+                             join courses in db.Courses on classes.CatalogId equals courses.CatalogId into clJoinCourses
+                             from cc in clJoinCourses
+                             join ac in db.AssignmentCategories on classes.ClassId equals ac.ClassId into ccJoinAc
+                             from ccac in ccJoinAc
+                             join asg in db.Assignments on ccac.AcId equals asg.AcId
+                             where (
+                                     cc.Abrev == subject
+                                     && int.Parse(cc.Number) == num
+                                     && classes.Season == season
+                                     && classes.Year == year
+                                     && asg.HwName == asgname
+                                     && ccac.AcName == category
+                                   )
+                             select asg.Instructions;
 
-            return Content("");
+
+            return Content(getContent.FirstOrDefault());
         }
 
 
@@ -173,8 +189,26 @@ namespace LMS.Controllers
         /// <returns>The submission text</returns>
         public IActionResult GetSubmissionText(string subject, int num, string season, int year, string category, string asgname, string uid)
         {
+            var getContent = from classes in db.Classes
+                             join courses in db.Courses on classes.CatalogId equals courses.CatalogId into clJoinCourses
+                             from cc in clJoinCourses
+                             join ac in db.AssignmentCategories on classes.ClassId equals ac.ClassId into ccJoinAc
+                             from ccac in ccJoinAc
+                             join asg in db.Assignments on ccac.AcId equals asg.AcId into asgJoinOther
+                             from a in asgJoinOther
+                             join sub in db.Submissions on a.HwId equals sub.HwId
+                             where (
+                                     cc.Abrev == subject
+                                     && int.Parse(cc.Number) == num
+                                     && classes.Season == season
+                                     && classes.Year == year
+                                     && a.HwName == asgname
+                                     && ccac.AcName == category
+                                   )
+                             select sub.Contents;
 
-            return Content("");
+
+            return Content(getContent.FirstOrDefault());
         }
 
 
