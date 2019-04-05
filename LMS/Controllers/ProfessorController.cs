@@ -149,8 +149,22 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInCategory(string subject, int num, string season, int year, string category)
         {
-
-            return Json(null);
+            var query = from courses in db.Courses
+                        join cl in db.Classes on courses.CatalogId equals cl.CatalogId into cJoinCl
+                        from instance in cJoinCl
+                        join ac in db.AssignmentCategories on instance.ClassId equals ac.ClassId into acStuff
+                        from b in acStuff
+                        join asg in db.Assignments on b.AcId equals asg.AcId
+                        where (courses.Abrev == subject && int.Parse(courses.Number) == num &&
+                        instance.Season == season && instance.Year == year && b.AcName == category)
+                        select new
+                        {
+                            aname = asg.HwName,
+                            cname = b.AcName,
+                            due = asg.DueDate,
+                            submissions = (from i in db.Submissions where i.HwId == asg.HwId select new { i.UId, i.HwId }).Count(),
+                        };
+            return Json(query.ToArray());
         }
 
 
@@ -177,7 +191,7 @@ namespace LMS.Controllers
                         select new
                         {
                             name = ac.AcName,
-                            weight = ac.Weight,
+                            weight = int.Parse(ac.Weight),
                         };
 
             return Json(query.ToArray());
@@ -243,8 +257,23 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing success = true/false</returns>
         public IActionResult CreateAssignment(string subject, int num, string season, int year, string category, string asgname, int asgpoints, DateTime asgdue, string asgcontents)
         {
+            var query = from cl in db.Classes
+                        join courses in db.Courses on cl.CatalogId equals courses.CatalogId into clCourses
+                        from clC in clCourses
+                        join ac in db.AssignmentCategories on cl.ClassId equals ac.ClassId
+                        where (clC.Abrev == subject && int.Parse(clC.Number) == num && cl.Season == season && cl.Year == year && ac.AcName == category)
+                        select ac.AcId;
 
-            return Json(new { success = false });
+            Assignments assignment = new Assignments();
+            assignment.HwName = asgname;
+            assignment.MaxPoints = (short)asgpoints;
+            assignment.Instructions = asgcontents;
+            assignment.DueDate = asgdue;
+            assignment.AcId = query.FirstOrDefault();
+            db.Assignments.Add(assignment);
+            db.SaveChanges();
+
+            return Json(new { success = true});
         }
 
 
@@ -267,8 +296,28 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetSubmissionsToAssignment(string subject, int num, string season, int year, string category, string asgname)
         {
+            var query = from courses in db.Courses
+                        join classes in db.Classes on courses.CatalogId equals classes.CatalogId into cJoinCl
+                        from courseClass in cJoinCl
+                        join assignmentCat in db.AssignmentCategories on courseClass.ClassId equals assignmentCat.ClassId into courseClassAsgnCategories
+                        from cca in courseClassAsgnCategories
+                        join asg in db.Assignments on cca.AcId equals asg.AcId into CourseClassAsgnCatAsgn
+                        from coclaca in CourseClassAsgnCatAsgn
+                        join sub in db.Submissions on coclaca.HwId equals sub.HwId into Hwsub
+                        from hwsub in Hwsub
+                        join s in db.Students on hwsub.UId equals s.UId
+                        where (courses.Abrev == subject && int.Parse(courses.Number) == num &&
+                        courseClass.Season == season && courseClass.Year == year && cca.AcName == category && coclaca.HwName == asgname)
+                        select new
+                        {
+                            fname = s.FirstName,
+                            lname = s.LastName,
+                            uid = s.UId,
+                            time = hwsub.STime,
+                            score = hwsub.Score,
+                        };
 
-            return Json(null);
+            return Json(query.ToArray());
         }
 
 
@@ -286,7 +335,31 @@ namespace LMS.Controllers
         /// <returns>A JSON object containing success = true/false</returns>
         public IActionResult GradeSubmission(string subject, int num, string season, int year, string category, string asgname, string uid, int score)
         {
+            var query = from courses in db.Courses
+                        join classes in db.Classes on courses.CatalogId equals classes.CatalogId into cJoinCl
+                        from courseClass in cJoinCl
+                        join assignmentCat in db.AssignmentCategories on courseClass.ClassId equals assignmentCat.ClassId into courseClassAsgnCategories
+                        from cca in courseClassAsgnCategories
+                        join asg in db.Assignments on cca.AcId equals asg.AcId into CourseClassAsgnCatAsgn
+                        from coclaca in CourseClassAsgnCatAsgn
+                        join sub in db.Submissions on coclaca.HwId equals sub.HwId into Hwsub
+                        from hwsub in Hwsub
+                        join s in db.Students on hwsub.UId equals s.UId
+                        where (courses.Abrev == subject && int.Parse(courses.Number) == num &&
+                        courseClass.Season == season && courseClass.Year == year && cca.AcName == category && coclaca.HwName == asgname)
+                        select new
+                        {
+                            Submissions = new
+                            {
+                                hwsub.HwId,
+                                hwsub.UId,
+                                hwsub.STime,
+                                hwsub.Score,
+                                hwsub.Contents
+                            }
+                        };
 
+            //Submissions submission = query.SingleOrDefault();
             return Json(new { success = true });
         }
 
