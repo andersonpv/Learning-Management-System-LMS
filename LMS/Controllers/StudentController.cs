@@ -107,7 +107,7 @@ namespace LMS.Controllers
                         from cc in clJoinCourses
                         join ac in db.AssignmentCategories on classes.ClassId equals ac.ClassId into ccJoinAc
                         from ccac in ccJoinAc
-                        join asg in db.Assignments on ccac.AcId equals asg.AcId 
+                        join asg in db.Assignments on ccac.AcId equals asg.AcId
                         where (
                                 cc.Abrev == subject
                                 && int.Parse(cc.Number) == num
@@ -120,10 +120,10 @@ namespace LMS.Controllers
                             cname = ccac.AcName,
                             due = asg.DueDate,
                             score = (from sub in db.Submissions
-                                    where (asg.HwId == sub.HwId && sub.UId == uid)
-                                    select sub.Score).FirstOrDefault()
+                                     where (asg.HwId == sub.HwId && sub.UId == uid)
+                                     select sub.Score).FirstOrDefault()
                         };
-          
+
             return Json(query.ToArray());
         }
 
@@ -149,8 +149,46 @@ namespace LMS.Controllers
         public IActionResult SubmitAssignmentText(string subject, int num, string season, int year,
           string category, string asgname, string uid, string contents)
         {
+            var getHwId = from classes in db.Classes
+                                join courses in db.Courses on classes.CatalogId equals courses.CatalogId into clJoinCourses
+                                from cc in clJoinCourses
+                                join ac in db.AssignmentCategories on classes.ClassId equals ac.ClassId into ccJoinAc
+                                from ccac in ccJoinAc
+                                join asg in db.Assignments on ccac.AcId equals asg.AcId
+                                where (
+                                        cc.Abrev == subject
+                                        && int.Parse(cc.Number) == num
+                                        && classes.Season == season
+                                        && classes.Year == year
+                                        && asg.HwName == asgname
+                                        && ccac.AcName == category
+                                      )
+                                select asg.HwId;
 
-            return Json(new { success = false });
+            var getSubmission = from submission in db.Submissions
+                                          where (submission.UId == uid && submission.HwId == getHwId.First())
+                                          select submission;
+
+
+            if (getSubmission.Any())
+            {
+                Submissions s = getSubmission.First();
+                s.STime = DateTime.Now;
+                s.Contents = contents;
+                db.SaveChanges();
+            }
+            else
+            {
+                Submissions s = new Submissions();
+                s.UId = uid;
+                s.STime = DateTime.Now;
+                s.Contents = contents;
+                s.Score = 0;
+                s.HwId = getHwId.First();
+                db.Submissions.Add(s);
+                db.SaveChanges();
+            }
+            return Json(new { success = true });
         }
 
 
@@ -169,15 +207,15 @@ namespace LMS.Controllers
             bool success = false;
             uint classId = 0;
             var getClassId = from classes in db.Classes
-                        join courses in db.Courses on classes.CatalogId equals courses.CatalogId
-                        where
-                        (
-                            classes.Year == year
-                            && courses.Abrev == subject
-                            && int.Parse(courses.Number) == num
-                            && classes.Season == season
-                        )
-                        select classes.ClassId;
+                             join courses in db.Courses on classes.CatalogId equals courses.CatalogId
+                             where
+                             (
+                                 classes.Year == year
+                                 && courses.Abrev == subject
+                                 && int.Parse(courses.Number) == num
+                                 && classes.Season == season
+                             )
+                             select classes.ClassId;
             classId = getClassId.FirstOrDefault();
             var uidAndClassid = from e in db.Enrollment
                                 where (e.UId == uid && e.ClassId == classId)

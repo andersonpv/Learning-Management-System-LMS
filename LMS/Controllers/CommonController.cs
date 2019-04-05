@@ -196,10 +196,64 @@ namespace LMS.Controllers
         /// </returns>
         public IActionResult GetUser(string uid)
         {
+            var getProf = from p in db.Professors
+                          join d in db.Departments
+                          on p.Abrev equals d.Abrev
+                          where p.UId == uid
+                          select new
+                          {
+                              prof = p,
+                              dept = d.DName
+                          };
+            var getStudent = from s in db.Students
+                             join d in db.Departments
+                             on s.Abrev equals d.Abrev
+                             where s.UId == uid
+                             select new
+                             {
+                                 student = s,
+                                 dept = d.DName
+                             };
+            var getAdmin = from a in db.Administrators
+                           where a.UId == uid
+                           select a;
 
+            // If Professor 
+            if (getProf.Any())
+            {
+                return Json(new {
+                    fname = getProf.First().prof.FirstName,
+                    lname = getProf.First().prof.LastName,
+                    uid,
+                    department = getProf.First().dept
+                });
+            }
+            // If Student
+            if (getStudent.Any())
+            {
+                return Json(new
+                {
+                    fname = getStudent.First().student.FirstName,
+                    lname = getStudent.First().student.LastName,
+                    uid,
+                    department = getStudent.First().dept
+                });
+            }
+
+            // If Administrator, do slightly different stuff.
+            if (getAdmin.Any())
+            {
+                return Json(new
+                {
+                    fname = getAdmin.First().FirstName,
+                    lname = getAdmin.First().LastName,
+                    uid,
+                });
+            }
+
+            // Otherwise, Fail.
             return Json(new { success = false });
         }
-
 
         /*******End code to modify********/
 
