@@ -358,7 +358,7 @@ namespace LMS.Controllers
                                 hwsub.Contents
                             }
                         };
-
+            // TODO: Figure out how to make this work. (Maybe change our query or something.)
             //Submissions submission = query.SingleOrDefault();
             return Json(new { success = true });
         }
