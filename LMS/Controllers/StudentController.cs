@@ -259,10 +259,7 @@ namespace LMS.Controllers
       // Convert those grades into a number
       foreach (string grade in getClasses)
       {
-        if (grade is null)
-        {
-        }
-        else
+        if (!(grade is null))
         {
           numClasses++;
           total += GetNumericalGrade(grade);
