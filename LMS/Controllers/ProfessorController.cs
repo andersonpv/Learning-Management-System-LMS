@@ -221,7 +221,9 @@ namespace LMS.Controllers
             uint classId = getClassId.FirstOrDefault();
 
             // Then check if that Class already has an Assignment category with that name.
-            var checkIfCatExists = from ac in db.AssignmentCategories where ac.AcName == category select category;
+            var checkIfCatExists = from ac in db.AssignmentCategories
+                                   where ac.AcName == category && ac.ClassId == classId
+                                   select category;
             if (checkIfCatExists.ToArray().Length == 0)
             {
                 success = true;

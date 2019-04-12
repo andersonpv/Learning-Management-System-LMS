@@ -145,13 +145,31 @@ namespace LMS.Controllers
 
 
             var getExistingClass = from cl in db.Classes
-                                   where (cl.CatalogId == query.FirstOrDefault() 
-                                   && cl.Season == season
-                                   && cl.Year == year)
+                                   where (cl.Season == season
+                                   && cl.Year == year
+                                   && cl.CatalogId == query.FirstOrDefault())
                                    select cl.ClassId;
-            //var getClassesInLocationAtThatTime;
+            
+            var getLocationsClass = from cl in db.Classes
+                                    where (cl.Season == season
+                                    && cl.Year == year
+                                    && cl.Location == location)
+                                    // With overlapping times of some sort.
+                                    && (
+                                    (start.TimeOfDay.CompareTo(cl.Start) >= 0
+                                    && start.TimeOfDay.CompareTo(cl.Stop) < 0
+                                    )
+                                    || (end.TimeOfDay.CompareTo(cl.Start) > 0
+                                    && end.TimeOfDay.CompareTo(cl.Stop) <= 0)
+                                    || (
+                                    start.TimeOfDay.CompareTo(cl.Start) < 0
+                                    && end.TimeOfDay.CompareTo(cl.Stop) > 0
+                                    )
+                                    )
+                                    select cl.ClassId;
+
             if (getExistingClass.ToArray().Length == 0 
-                /* && the other query for locationnn is also empty */)
+                && getLocationsClass.ToArray().Length == 0)
             {
                 isSuccessful = true;
             }
@@ -164,8 +182,8 @@ namespace LMS.Controllers
                 c.Year = (uint)year;
                 c.ProfId = instructor;
                 c.Location = location;
-                // TODO: add a start and stop time.
-                //c.Start = start;
+                c.Start = start.TimeOfDay;
+                c.Stop = end.TimeOfDay;
                 db.Classes.Add(c);
                 db.SaveChanges();
             }
