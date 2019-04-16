@@ -204,6 +204,7 @@ namespace LMS.Controllers
                                      && classes.Year == year
                                      && a.HwName == asgname
                                      && ccac.AcName == category
+                                     && sub.UId == uid
                                    )
                              select sub.Contents;
 
