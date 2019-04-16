@@ -149,6 +149,25 @@ namespace LMS.Controllers
         /// <returns>The JSON array</returns>
         public IActionResult GetAssignmentsInCategory(string subject, int num, string season, int year, string category)
         {
+            if (category is null)
+            {
+                var allAssignments = from courses in db.Courses
+                            join cl in db.Classes on courses.CatalogId equals cl.CatalogId into cJoinCl
+                            from instance in cJoinCl
+                            join ac in db.AssignmentCategories on instance.ClassId equals ac.ClassId into acStuff
+                            from b in acStuff
+                            join asg in db.Assignments on b.AcId equals asg.AcId
+                            where (courses.Abrev == subject && int.Parse(courses.Number) == num &&
+                            instance.Season == season && instance.Year == year)
+                            select new
+                            {
+                                aname = asg.HwName,
+                                cname = b.AcName,
+                                due = asg.DueDate,
+                                submissions = (from i in db.Submissions where i.HwId == asg.HwId select i.HwId).Count(),
+                            };
+                return Json(allAssignments.ToArray());
+            }
             var query = from courses in db.Courses
                         join cl in db.Classes on courses.CatalogId equals cl.CatalogId into cJoinCl
                         from instance in cJoinCl
@@ -162,7 +181,7 @@ namespace LMS.Controllers
                             aname = asg.HwName,
                             cname = b.AcName,
                             due = asg.DueDate,
-                            submissions = (from i in db.Submissions where i.HwId == asg.HwId select new { i.UId, i.HwId }).Count(),
+                            submissions = (from i in db.Submissions where i.HwId == asg.HwId select i.HwId).Count(),
                         };
             return Json(query.ToArray());
         }
@@ -344,24 +363,21 @@ namespace LMS.Controllers
                         from cca in courseClassAsgnCategories
                         join asg in db.Assignments on cca.AcId equals asg.AcId into CourseClassAsgnCatAsgn
                         from coclaca in CourseClassAsgnCatAsgn
-                        join sub in db.Submissions on coclaca.HwId equals sub.HwId into Hwsub
-                        from hwsub in Hwsub
-                        join s in db.Students on hwsub.UId equals s.UId
-                        where (courses.Abrev == subject && int.Parse(courses.Number) == num &&
-                        courseClass.Season == season && courseClass.Year == year && cca.AcName == category && coclaca.HwName == asgname)
-                        select new
-                        {
-                            Submissions = new
-                            {
-                                hwsub.HwId,
-                                hwsub.UId,
-                                hwsub.STime,
-                                hwsub.Score,
-                                hwsub.Contents
-                            }
-                        };
-            // TODO: Figure out how to make this work. (Maybe change our query or something.)
-            //Submissions submission = query.SingleOrDefault();
+                        join sub in db.Submissions on coclaca.HwId equals sub.HwId 
+                        where (
+                            courses.Abrev == subject 
+                            && int.Parse(courses.Number) == num 
+                            && courseClass.Season == season 
+                            && courseClass.Year == year 
+                            && cca.AcName == category 
+                            && coclaca.HwName == asgname
+                            && sub.UId == uid
+                        )
+                        select sub;
+            
+            Submissions submission = query.SingleOrDefault();
+            submission.Score = (ushort?)score;
+            db.SaveChanges();
             return Json(new { success = true });
         }
 
