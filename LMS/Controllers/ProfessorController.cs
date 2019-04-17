@@ -285,16 +285,26 @@ namespace LMS.Controllers
                         where (clC.Abrev == subject && int.Parse(clC.Number) == num && cl.Season == season && cl.Year == year && ac.AcName == category)
                         select ac.AcId;
 
-            Assignments assignment = new Assignments();
-            assignment.HwName = asgname;
-            assignment.MaxPoints = (short)asgpoints;
-            assignment.Instructions = asgcontents;
-            assignment.DueDate = asgdue;
-            assignment.AcId = query.FirstOrDefault();
-            db.Assignments.Add(assignment);
-            db.SaveChanges();
+            var acHasSameName = from a in db.Assignments
+                                where a.AcId == query.FirstOrDefault()
+                                && a.HwName == asgname
+                                select a;
 
-            return Json(new { success = true});
+            bool success = acHasSameName.ToArray().Length == 0;
+            if (success)
+            {
+                Assignments assignment = new Assignments();
+                assignment.HwName = asgname;
+                assignment.MaxPoints = (short)asgpoints;
+                assignment.Instructions = asgcontents;
+                assignment.DueDate = asgdue;
+                assignment.AcId = query.FirstOrDefault();
+                db.Assignments.Add(assignment);
+                db.SaveChanges();
+
+            }
+
+            return Json(new { success });
         }
 
 
