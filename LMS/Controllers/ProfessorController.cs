@@ -301,9 +301,9 @@ namespace LMS.Controllers
                 assignment.AcId = query.FirstOrDefault();
                 db.Assignments.Add(assignment);
                 db.SaveChanges();
-
+                AdjustAllGradesInAClass(GetClassID(season, year, subject, num));
             }
-
+            
             return Json(new { success });
         }
 
@@ -427,27 +427,67 @@ namespace LMS.Controllers
         private void AdjustAllGradesInAClass(uint classid)
         {
             // For a particular class, we will find
+            
             // 1. All the category weights for that class
-            var catWeights = GetCategoriesWeight(classid);
+           // object[] catWeights = GetCategoriesWeight(classid);
+            Dictionary<uint, int> catWeights = GetCategoriesWeight(classid);
+
 
             // 2. All the total points possible for each category
-            var categoryPossiblePoints = GetCategoriesPossiblePoints(classid);
+            Dictionary<uint, int?> categoryPossiblePoints = GetCategoriesPossiblePoints(classid);
+
+            Dictionary<uint, double> categoryConstants = new Dictionary<uint, double>();
+
+            uint[] allAcid = GetAcId(classid);
+            foreach (uint acid in allAcid)
+            {
+                if (categoryPossiblePoints[acid] is null || categoryPossiblePoints[acid] == 0)
+                {
+                    catWeights.Remove(acid);
+                    categoryPossiblePoints.Remove(acid);
+                }
+                else
+                {
+                    categoryConstants.Add(acid, (double)catWeights[acid] / (double)categoryPossiblePoints[acid]);
+                }
+            }
+
+            int totalWeight = 0;
+            foreach (uint acid in catWeights.Keys)
+            {
+                totalWeight += catWeights[acid];
+            }
 
             // 3. for each student in the class, we will find the total points earned in each category.
             var allEnrolledStudents = GetAllEnrolledStudents(classid);
             foreach(string uid in allEnrolledStudents)
             {
-                var studentScores = GetScoresOfStudentInClass(classid, uid);
+                Dictionary<uint, int?> studentScores = GetScoresOfStudentInClass(classid, uid);
                 // 4. For each student, we will then calculate and save their grade in the class.
                 double grade = 0.0;
-                int totalCategoryWeights = 0;
                 // Cycle through the Assignment Categories, do relevent calculations
-                foreach (var pp in categoryPossiblePoints)
+                foreach (uint acid in categoryConstants.Keys)
                 {
-                    
+                    double score = studentScores[acid] is null ? 0 : (double)studentScores[acid];
+                    grade += score * categoryConstants[acid] / (double)totalWeight;
                 }
                 // Set the Student's grade to be something.
+                string g = ConvertDoubleToGrade(grade*100);
+                Enrollment e = (from enroll in db.Enrollment
+                                where enroll.UId == uid
+                                && enroll.ClassId == classid
+                                select enroll).FirstOrDefault();
+                e.Grade = g;
+                db.SaveChanges();
             }
+        }
+
+        private uint[] GetAcId(uint classid)
+        {
+            var query = from ac in db.AssignmentCategories
+                        where ac.ClassId == classid
+                        select ac.AcId;
+            return query.ToArray();
         }
 
         private string ConvertDoubleToGrade(double grade)
@@ -486,7 +526,7 @@ namespace LMS.Controllers
             return students;
         }
 
-        private IQueryable GetScoresOfStudentInClass(uint classid, string uid)
+        private Dictionary<uint, int?> GetScoresOfStudentInClass(uint classid, string uid)
         {
             var query = from ac in db.AssignmentCategories
                         where ac.ClassId == classid
@@ -498,11 +538,15 @@ namespace LMS.Controllers
                                             where s.UId == uid
                                             select s.Score).Sum(x => x)
                         };
-
-            return query;
+            Dictionary<uint, int?> result = new Dictionary<uint, int?>();
+            foreach (var item in query)
+            {
+                result.Add(item.AcId, item.pointsEarned);
+            }
+            return result;
         }
 
-        private IQueryable GetCategoriesPossiblePoints(uint classid)
+        private Dictionary<uint, int?> GetCategoriesPossiblePoints(uint classid)
         {
             var query = from ac in db.AssignmentCategories
                         where ac.ClassId == classid
@@ -515,7 +559,12 @@ namespace LMS.Controllers
                                           select Groups.Sum(x => x.MaxPoints)).FirstOrDefault()
                         };
 
-            return query;
+            Dictionary<uint, int?> result = new Dictionary<uint, int?>();
+            foreach (var item in query)
+            {
+                result.Add(item.AcId, item.totalPoint);
+            }
+            return result;
         }
 
         /// <summary>
@@ -523,7 +572,7 @@ namespace LMS.Controllers
         /// </summary>
         /// <param name="classid"></param>
         /// <returns></returns>
-        private IQueryable GetCategoriesWeight(uint classid)
+        private Dictionary<uint, int> GetCategoriesWeight(uint classid)
         {
             var query = from ac in db.AssignmentCategories
                         where ac.ClassId == classid
@@ -532,8 +581,12 @@ namespace LMS.Controllers
                             ac.AcId,
                             ac.Weight
                         };
-
-            return query;
+            Dictionary<uint, int> result = new Dictionary<uint, int>();
+            foreach(var item in query)
+            {
+                result.Add(item.AcId, int.Parse(item.Weight));
+            }
+            return result;
         }
 
         /// <summary>
