@@ -388,6 +388,9 @@ namespace LMS.Controllers
             Submissions submission = query.SingleOrDefault();
             submission.Score = (ushort?)score;
             db.SaveChanges();
+
+            AdjustAllGradesInAClass(GetClassID(season, year, subject, num));
+
             return Json(new { success = true });
         }
 
@@ -419,9 +422,140 @@ namespace LMS.Controllers
                         };
             return Json(query.ToArray());
         }
-
-
         /*******End code to modify********/
 
+        private void AdjustAllGradesInAClass(uint classid)
+        {
+            // For a particular class, we will find
+            // 1. All the category weights for that class
+            var catWeights = GetCategoriesWeight(classid);
+
+            // 2. All the total points possible for each category
+            var categoryPossiblePoints = GetCategoriesPossiblePoints(classid);
+
+            // 3. for each student in the class, we will find the total points earned in each category.
+            var allEnrolledStudents = GetAllEnrolledStudents(classid);
+            foreach(string uid in allEnrolledStudents)
+            {
+                var studentScores = GetScoresOfStudentInClass(classid, uid);
+                // 4. For each student, we will then calculate and save their grade in the class.
+                double grade = 0.0;
+                int totalCategoryWeights = 0;
+                // Cycle through the Assignment Categories, do relevent calculations
+                foreach (var pp in categoryPossiblePoints)
+                {
+                    
+                }
+                // Set the Student's grade to be something.
+            }
+        }
+
+        private string ConvertDoubleToGrade(double grade)
+        {
+            if (grade >= 93.0)
+                return "A";
+            else if (grade >= 90.0)
+                return "A-";
+            else if (grade >= 87)
+                return "B+";
+            else if (grade >= 83)
+                return "B";
+            else if (grade >= 80)
+                return "B-";
+            else if (grade >= 77)
+                return "C+";
+            else if (grade >= 73)
+                return "C";
+            else if (grade >= 70)
+                return "C-";
+            else if (grade >= 67)
+                return "D+";
+            else if (grade >= 63)
+                return "D";
+            else if (grade >= 60)
+                return "D-";
+            else
+                return "E";
+        }
+
+        private IQueryable GetAllEnrolledStudents(uint classid)
+        {
+            var students = from e in db.Enrollment
+                           where e.ClassId == classid
+                           select e.UId;
+            return students;
+        }
+
+        private IQueryable GetScoresOfStudentInClass(uint classid, string uid)
+        {
+            var query = from ac in db.AssignmentCategories
+                        where ac.ClassId == classid
+                        select new
+                        {
+                            ac.AcId,
+                            pointsEarned = (from a in ac.Assignments
+                                            from s in a.Submissions
+                                            where s.UId == uid
+                                            select s.Score).Sum(x => x)
+                        };
+
+            return query;
+        }
+
+        private IQueryable GetCategoriesPossiblePoints(uint classid)
+        {
+            var query = from ac in db.AssignmentCategories
+                        where ac.ClassId == classid
+                        select new
+                        {
+                            ac.AcId,
+                            totalPoint = (from assg in db.Assignments
+                                          where assg.AcId == ac.AcId
+                                          group assg by assg.AcId into Groups
+                                          select Groups.Sum(x => x.MaxPoints)).FirstOrDefault()
+                        };
+
+            return query;
+        }
+
+        /// <summary>
+        /// Helper method that returns the query used to find all of the category weights in a particular class.
+        /// </summary>
+        /// <param name="classid"></param>
+        /// <returns></returns>
+        private IQueryable GetCategoriesWeight(uint classid)
+        {
+            var query = from ac in db.AssignmentCategories
+                        where ac.ClassId == classid
+                        select new
+                        {
+                            ac.AcId,
+                            ac.Weight
+                        };
+
+            return query;
+        }
+
+        /// <summary>
+        /// Returns the classID of a particular class.
+        /// </summary>
+        /// <param name="season"></param>
+        /// <param name="year"></param>
+        /// <param name="subject"></param>
+        /// <param name="num"></param>
+        /// <returns></returns>
+        private uint GetClassID(string season, int year, string subject, int num)
+        {
+            var classID = from classes in db.Classes
+                          join course in db.Courses
+                          on classes.CatalogId equals course.CatalogId
+                          where course.Abrev == subject
+                          && int.Parse(course.Number) == num
+                          && classes.Season == season
+                          && classes.Year == year
+                          select classes.ClassId;
+
+            return classID.FirstOrDefault();
+        }
     }
 }
