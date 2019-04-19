@@ -422,8 +422,9 @@ namespace LMS.Controllers
                         };
             return Json(query.ToArray());
         }
-        /*******End code to modify********/
+  /*******End code to modify********/
 
+        #region Helpers
         private void AdjustAllGradesInAClass(uint classid)
         {
             // For a particular class, we will find
@@ -610,5 +611,7 @@ namespace LMS.Controllers
 
             return classID.FirstOrDefault();
         }
+    #endregion
+
     }
 }
